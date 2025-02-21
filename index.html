@@ -1,0 +1,255 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Superclav Widget</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(45deg, #f3f3f3, #e0e0e0);
+        margin: 0;
+        padding: 20px;
+      }
+
+      center {
+        margin: 20px auto;
+      }
+
+      h1 {
+        color: #333;
+        font-size: 2.5em;
+        text-align: center;
+      }
+
+      p {
+        color: #555;
+        font-size: 1.2em;
+        text-align: center;
+      }
+
+      faust-widget {
+        display: block;
+        margin: 30px auto;
+        width: 80%;
+        border: 1px solid #ccc;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        background-color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <center>
+      <h1>Superclav can directly be tested in this widget</h1>
+      <p>Click on the widget upper-left button to start, connect your MIDI keyboard and play.</p>
+    </center>
+    <center>
+      <center>
+        <faust-widget>
+            <!--
+import("stdfaust.lib");
+
+declare options "[midi:on][nvoices:16]";
+
+mid_side(l,r) = out : fi.dcblocker,fi.dcblocker
+with {
+    mid   = l+r;
+    diff  = l-r;
+    side  = diff*width;
+    out   = mid+side, mid-side;
+    width = hslider("stereo_width[midi:ctrl 42]",1,0,1,0.007874);
+};
+
+// currently unused via being set to 0 modfactor in 'akjrev'
+// resulting sound was too smeared in pitch...
+smear_delay(del,modfactor) =
+  _ : de.sdelay(MAXDELAY,IT,del_len)
+with {
+    MAXDELAY =  8192;
+    IT       =  1024;
+    del_len  =  del + del_mod;
+    del_mod  =  no.noise : ba.sAndH(ba.pulse(14000)) : ba.line(14000)
+                : _*(del*modfactor);
+};
+
+akjrev(cutoff,feedback)
+    = (si.bus(2*N) :> si.bus(N) : delaylines(N)) ~
+      (delayfilters(N,cutoff,feedback) : feedbackmatrix(N))
+with {
+    N = 16;
+    delays = (2113,2267,2411,2543,2663,2851,2957,3089,3271,3449,3593,3739,3863,4003,4159,4327);
+    delayval(i) = ba.take(i+1,delays);
+    delaylines(N) = par(i,N,(smear_delay(delayval(i),0.000)));  // 0.0004
+    delayfilters(N,cutoff,feedback) = par(i,N,filter(i,cutoff,feedback));
+    feedbackmatrix(N) = bhadamard(N);
+    bhadamard(2) = si.bus(2) <: +,-;
+    bhadamard(n) = si.bus(n) <: (si.bus(n):>si.bus(n/2)) , ((si.bus(n/2),(si.bus(n/2):par(i,n/2,*(-1)))) :> si.bus(n/2))
+                   : (bhadamard(n/2) , bhadamard(n/2));
+    filter(i,cutoff,feedback) = fi.lowpass(1,cutoff) : *(feedback)
+                                :> /(sqrt(N)) : _;
+};
+
+akjrev_demo = _,_ : mid_side <: ef.dryWetMixerConstantPower(wet*0.9, akjrev(cutoff,feedback)) :> _,_
+with {
+    cutoff   = hslider("cutoff[midi:ctrl 45]",7563,500,12000,90.55118);
+    feedback = hslider("feedback[midi:ctrl 46]",0.55,0,1,0.00787);
+    wet      = hslider("wet[midi:ctrl 47]",0.5,0,1,0.01);
+};
+
+gate = button("v:midi/[0]gate[hidden:1]");
+gain = hslider("v:midi/[1]gain[hidden:1]",0.1,0,1,0.01);
+mkey = hslider("v:midi/[2]key",60,36,96,1);
+
+freq = midikey2hz(mkey-36)
+with {
+    ///////////////////////////////////////////////////////////////////
+    // johnson-secor_rwt.scl (Johnson/Secor Rational Well-Temperment //
+    // with five 24/19 major thirds)                                 //
+    // It's laid out here in a 4-octave keyboard setup, perfect for
+    // a little 49-key controller to simulate a 'clav' sound with an //
+    // authentic range/gamut. As a result, MIDI key #36 should map   //
+    // to index 0 in the tables below. This is why we subtract 36 in //
+    // the variable declarations.                                    //
+    ///////////////////////////////////////////////////////////////////
+    myhzvals = waveform{
+        65.25,
+        68.97401273911355,
+        73.07542096695869,
+        77.50818851695334,
+        81.93181275331729,
+        86.99999999999999,
+        92.06926110620043,
+        97.65419825172961,
+        103.3442514075962,
+        109.36584898752463,
+        116.13106737084314,
+        122.89771906854337,
+        130.5,
+        137.94802547822707,
+        146.15084193391743,
+        155.01637703390668,
+        163.86362550663458,
+        174.00000000000003,
+        184.13852221240086,
+        195.30839650345916,
+        206.68850281519246,
+        218.73169797504926,
+        232.26213474168622,
+        245.79543813708682,
+        261.0,
+        275.89605095645413,
+        292.30168386783487,
+        310.03275406781336,
+        327.72725101326915,
+        348.00000000000006,
+        368.2770444248017,
+        390.61679300691833,
+        413.37700563038493,
+        437.4633959500985,
+        464.52426948337245,
+        491.59087627417364,
+        522.0,
+        551.7921019129083,
+        584.6033677356697,
+        620.0655081356267,
+        655.4545020265383,
+        696.0000000000001,
+        736.5540888496034,
+        781.2335860138367,
+        826.7540112607699,
+        874.926791900197,
+        929.0485389667449,
+        983.1817525483473,
+        1044.0
+    };
+    midikey2hz(mk) = myhzvals,int(mk) : rdtable;
+};
+
+//////////////////////
+// excitation noise //
+//////////////////////
+saw_mix          = hslider("saw_mix[midi:ctrl 21]",0.177165,0,0.25,0.00197);
+attack_bright_C1 = hslider("attack_bright_C1[midi:ctrl 22]",11.866141,1,16,0.11811);
+attack_bright_C5 = hslider("attack_bright_C5[midi:ctrl 23]",5.370079,1,16,0.11811);
+attack_bright    = attack_bright_C1+((mkey-36)*((attack_bright_C5-attack_bright_C1)/48));
+/////////////////////////////////
+// string feedback (resonance) //
+/////////////////////////////////
+// Uncomment the first of the following to get a dial for experimentation
+// (and obviously only have one of the two lines
+// The keyboard mapped expression was emperically derived based
+// on what sounded good between the highest and lowest ranges.
+feedback_C1 = hslider("feedback_C1[midi:ctrl 24]",15.763780,1,16,0.11811);
+feedback_C5 = hslider("feedback_C5[midi:ctrl 25]",16.000000,1,16,0.11811);
+feedback    = feedback_C1+((mkey-36)*((feedback_C5-feedback_C1)/48));
+////////////////
+// decay time //
+////////////////
+decay_time_C1 = hslider("decay_time_C1[midi:ctrl 26]",29.275591,1,64,0.49606); 
+decay_time_C5 = hslider("decay_time_C5[midi:ctrl 27]",19.354330,1,64,0.49606);
+decay_time    = decay_time_C1+((mkey-36)*((decay_time_C5-decay_time_C1)/48));
+/////////////////
+// body cutoff //
+/////////////////
+body_cutoff = hslider("body_cutoff_C1[midi:ctrl 28]",3543.181152,256,5000,37.35433);
+/////////////////////
+// gain correction //
+/////////////////////
+gain_scale  = hslider("gain_scale[midi:ctrl 48]",0.389764,0,1.5,0.01181);
+
+///////////////////////////////////////
+// The feedback comb filter 'string' //
+///////////////////////////////////////
+fb_fcomba(maxdel,N,b0,aN) = (+ <: de.fdelay1a(maxdel,float(N)-1.0),_) ~ *(-aN) : !,*(b0) : mem;
+
+combString(freq,feedback,gate) = excitation
+    : fi.highpass(2,30) : fi.lowpass(1,energy) : fb_fcomba(maxDel,N,b0,aN)
+with {
+    maxDel     = 1024;
+    N          = ma.SR/freq;
+    b0         = 1;
+    aN         = ba.tau2pole(feedback*0.001)*-1;
+    noise_vol  = 1-saw_mix;
+    exc_numer  = 0.5+(mkey-36)*0.0104166;
+    exc_attack = exc_numer/freq;
+    energy     = freq*gain*attack_bright;
+    excite_env = en.ar(exc_attack,exc_attack*2,gate);
+    excitation = ((no.noise*noise_vol + os.sawtooth(freq)*saw_mix)
+                  * excite_env
+                  * gain) : fi.dcblocker;
+};
+
+///////////////////////////////////////////////
+// The instrument, the 'string' source going //
+// through lowpass.                          //
+///////////////////////////////////////////////
+superclav = (
+    combString(freq,feedback,gate)*amp_env*gain_scale*0.5
+    : fi.lowpass(2,cutoff) : fi.dcblocker <: _,de.sdelay(2048,2048,delay_smps)
+)
+with {
+    exc_attack    = 1/freq;
+    amp_env       = en.asre(exc_attack,gain,exc_attack*2,gate);
+    cutoff_env    = en.adsre(exc_attack,decay_time,0.1,exc_attack*2,gate);  // pow(0.001,0.25)
+    fast_cf_env   = en.ar(exc_attack,exc_attack,gate);
+    cutoff        = ((pow(cutoff_env,4)*body_cutoff)
+                     +(1.3*fast_cf_env*body_cutoff)
+                     +freq);
+    // stereo imaging
+    frq_smps      = ma.SR/freq;
+    frq_smp_quad  = frq_smps/4;
+    hass_delay    = hslider("hass_delay[midi:ctrl 41]",0.03,0.01,0.04,0.0023622);
+    hass_delsmps  = ma.SR*hass_delay;
+    del_units     = floor(hass_delsmps/frq_smps);
+    delay_smps    = (frq_smps*del_units)+frq_smp_quad;
+};
+
+process = superclav : *(0.5),*(0.5);
+effect = akjrev_demo;
+-->
+        </faust-widget>
+      <script src="https://cdn.jsdelivr.net/npm/@grame/faust-web-component@0.4.5/dist/faust-web-component.js"></script>
+    </center>
+  </body>
+</html>
