@@ -194,7 +194,7 @@ with {
 ///////////////////////////////////////////////////////////////////////////////
 bright_C1  = 97;     // not magic, emprically getting appropriate brightness and decay
 bright_C5  = 67;     // same thing
-sustain    = 0.9984; // adjustment that allows note to stay bright but decay a bit faster
+sustain    = 0.9985; // adjustment that allows note to stay bright but decay a bit faster
 master_vol = hslider("master_vol[midi:ctrl 48]",0.5,0,1,0.007874);
 
 /////////////////////////////////////////
@@ -230,7 +230,7 @@ with {
     // Resonator filter and its params //
     /////////////////////////////////////
     brightness     = bright_C1+(bright_C5-bright_C1)*((mkey-36)*(1/48));
-    tau            = 1/((freq*2*ma.PI)+(freq*brightness*gain*2*ma.PI));
+    tau            = 1/((freq*4*ma.PI)+(freq*brightness*gain*2*ma.PI));
     pole_val       = ba.tau2pole(tau);
     flt            = *(1-pole_val) : + ~ *(pole_val); // standard 1-pole lowpass equation
     ///////////////////////////////////////
