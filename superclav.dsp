@@ -3,11 +3,13 @@ import("stdfaust.lib");
 
 import("spulse.lib");
 import("stereoizer.lib");
-import("akjrev_48000.dsp");
+import("akjrev_48000.lib");
 
-gate = button("v:midi/[0]gate[hidden:1]");
-gain = hslider("v:midi/[1]gain[hidden:1]",0.1,0,1,0.01);
-mkey = hslider("v:midi/[2]key",60,36,96,1);
+gate         = button("v:midi/[0]gate[hidden:1]");
+gain         = hslider("v:midi/[1]gain[hidden:1]",0.1,0,1,0.01);
+mkey         = hslider("v:midi/[2]key[hidden:1]",60,36,96,1);
+stereo_width = hslider("[4]stereo_width[midi:ctrl 41]", 1.0, 0, 1, 0.007874);
+master_vol   = hslider("[5]master_vol  [midi:ctrl 48]", 0.13, 0, 1, 0.007874);
 
 freq = midikey2hz(mkey-36)
 with {
@@ -74,6 +76,29 @@ with {
     midikey2hz(mk) = myhzvals,int(mk) : rdtable;
 };
 
+adj_cf = midikey2cf(mkey-36)
+with {
+    mycfs = waveform {
+        1,1,1,1,1,1,1,1,1,1,1,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,
+        0.6,    // C5
+        0.6,    // Db5
+        0.9,    // D5
+        0.8,    // Eb5
+        1,      // E5
+        0.6,    // F5
+        1,      // F#5
+        1,      // G5
+        0.5,    // G#5
+        0.6,    // A5
+        0.8,    // Bb5
+        0.6,    // B5
+        0.5     // C6
+    };
+    midikey2cf(mk) = mycfs,int(mk) : rdtable;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // Basic params!                                                             //
 //                                                                           //
@@ -101,14 +126,12 @@ with {
 // naturally ring a bit longer otherwise...                                  //
 ///////////////////////////////////////////////////////////////////////////////
 bright_C1    = 89;     // not magic, emprically getting appropriate brightness and decay (was 97)
-bright_C5    = 67;     // same thing  (was 73)
+bright_C5    = 69;     // same thing  (was 73)
 sustain      = 0.9985; // adjustment that allows note to stay bright but decay a bit faster
-master_vol   = hslider("master_vol  [midi:ctrl 48]", 0.13, 0, 1, 0.007874);
-stereo_width = hslider("stereo_width[midi:ctrl 41]", 1.0, 0, 1, 0.007874);
 /////////////////////////////////////////
 // The Superclav instrument definition //
 /////////////////////////////////////////
-superclav = excitation : fi.highpass(2,35) : resonator(delsmps)*env*master_vol*0.5
+superclav = excitation : fi.highpass(2,35) : resonator(delsmps)*env*master_vol*0.5 : adj_flt
             <: stereoizer(stereo_width)
 with {
     //////////////////////////////////////////////////////////
@@ -128,24 +151,14 @@ with {
     // Pink-noise excitation //
     ///////////////////////////
     exc_factor     = 1/(2.0+(mkey-36)*(-1/48));               // kbd tracking
-    ///////////////////////////////////////////////////////////////////////////
-    // NOISE TWEAK - I was playing around with different noise color curves  //
-    // w/re: keyboard tracking. Ultimately, I do think simple pink noise     //
-    // all the way is the best, but YMMV. I leave this here as an indicator  //
-    // of my thought process...                                              //
-    ///////////////////////////////////////////////////////////////////////////
-    //exc_col_noi    = (-1/2)+((mkey-36)*(1/48)*(1/12));      // kbd track noise
-                                                              // (i.e. make it slighter brighter towards the top)
-    exc_col_noi    = -1/2;                                    // (ultimately, I decide to stick with pink noise all the way!)
-    /////////////////////
-    // END NOISE TWEAK //
-    /////////////////////
-    exc_window     = spulse(int(delsmps)*exc_factor,gate);
+    exc_col_noi    = -1/2;                                    // -1/2 is pink noise
+    exc_window     = spulse(int(delsmps*exc_factor+0.5),gate);
     exc_env        = en.are(attack,exc_rel,gate);
-    adj_gain       = (gain*gain*0.875)+0.125;                 // keep gain > 0.125 to reduce stray weak hits
-    inv_gain       = 1-gain;                                  // invert for filter response equation
-    exc_filt       = *(1-inv_gain) : + ~ *(inv_gain);         // filter for velocity response
-    impulse_factor = (mkey-36)*(0.33/48);
+    base_gain      = ((pow(gain,1.666)*0.875)+0.125)*0.8;     // keep gain > 0.125 to reduce stray weak hits
+    gain_comp      = (mkey>=72)*(mkey-72)*(0.1/12.0);
+    adj_gain       = base_gain+gain_comp;
+    exc_filt       = *(adj_gain) : + ~ *(1-adj_gain);         // filter for velocity response
+    impulse_factor = (mkey-36)*(0.59/48);                     // was (0.37/48) then (0.53/48)
     impulse        = gate*adj_gain*impulse_factor : ba.impulsify;
     excitation     = (no.colored_noise(8,exc_col_noi) + impulse) * (adj_gain*exc_env*exc_window) : exc_filt;
     /////////////////////////////////////
@@ -154,7 +167,7 @@ with {
     brightness     = bright_C1+(bright_C5-bright_C1)*((mkey-36)*(1/48));
     tau            = 1/((freq*4*ma.PI)+(freq*brightness*adj_gain*2*ma.PI));
     pole_val       = ba.tau2pole(tau);
-    flt            = *(1-pole_val) : + ~ *(pole_val); // standard 1-pole lowpass equation
+    flt            = *(1-pole_val) : + ~ *(pole_val);   // standard 1-pole lowpass equation
     ///////////////////////////////////////
     // The actual string model resonator //
     ///////////////////////////////////////
@@ -163,6 +176,10 @@ with {
     // Wrap it all in an anti-click and MIDI-playing envelope //
     ////////////////////////////////////////////////////////////
     env            = en.adsre(attack*0.5,0,1,release,gate); // N.B. added the *0.5 on 2025-04-20
+    ////////////////////////////////////
+    // Outer ping compensation filter //
+    ////////////////////////////////////
+    adj_flt        = *(adj_cf) : + ~ *(1-adj_cf);
 };
 
 process = superclav;
