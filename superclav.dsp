@@ -171,7 +171,7 @@ with {
     ///////////////////////////////////////
     // The actual string model resonator //
     ///////////////////////////////////////
-    resonator(ds)  = (+ : de.fdelay2(4096, ds-1)) ~ (flt*sustain) : fi.dcblocker;
+    resonator(ds)  = (+ : de.fdelay2a(4096, ds-1)) ~ (flt*sustain) : fi.dcblocker;
     ////////////////////////////////////////////////////////////
     // Wrap it all in an anti-click and MIDI-playing envelope //
     ////////////////////////////////////////////////////////////
